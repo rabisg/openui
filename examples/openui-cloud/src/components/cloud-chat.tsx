@@ -1,65 +1,65 @@
 "use client";
 
+import { AVAILABLE_MODELS, DEFAULT_MODEL } from "@/config/models";
 import {
+  AgentInterface,
   defineArtifactCategories,
+  ModelSwitcher,
   openAIConversationMessageFormat,
   openAIResponsesAdapter,
-  type ChatLLM,
-} from "@openuidev/react-headless";
-import { AgentInterface } from "@openuidev/react-ui";
-// chatLibrary, useOpenuiCloudStorage, and the artifact renderers all come from the
-// migrated SDK (@openuidev/thesys). Its artifact parser now reads the program from
-// the tool INPUT channel (args.artifact_content), so the rich preview renders live
-// during/after generation without a refresh.
-import { useTheme } from "@/hooks/use-system-theme";
+  useLLM,
+  useSystemThemeMode,
+} from "@openuidev/react-ui";
 import {
   chatLibrary,
   presentationArtifactRenderer,
   reportArtifactRenderer,
   useOpenuiCloudStorage,
 } from "@openuidev/thesys";
+import dynamic from "next/dynamic";
+import { useState } from "react";
 
-// Categories are consumer-owned (the SDK exports each renderer separately). One
-// category per genui artifact kind; `defineArtifactCategories` returns both the
-// deduped `artifactRenderers` and the `artifactCategories` (each `filter.type`
-// derived from the renderers' types). Presentation is listed first — it owns the
-// artifact tool names (the renderer registry is first-wins per toolName).
 const { artifactRenderers, artifactCategories } = defineArtifactCategories([
   { name: "Presentations", renderers: [presentationArtifactRenderer] },
   { name: "Reports", renderers: [reportArtifactRenderer] },
 ]);
 
-const llm: ChatLLM = {
-  send: async ({ threadId, messages, signal }) => {
-    // The API replays full history via the conversation linkage — send only
-    // the latest message.
-    const latest = messages.slice(-1);
-    return fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId, input: openAIConversationMessageFormat.toApi(latest) }),
-      signal,
-    });
-  },
-  streamProtocol: openAIResponsesAdapter(),
-};
+const OpenUIDevTools =
+  process.env.NODE_ENV === "development"
+    ? dynamic(() => import("@openuidev/devtools").then((module) => module.OpenUIDevTools), {
+        ssr: false,
+      })
+    : null;
 
 export function CloudChat() {
-  const mode = useTheme();
-  // useOpenuiCloudStorage: browser ChatStorage over /v1, fct_-authenticated. As a
-  // hook the storage + its fct_ token manager are created on mount (not at module
-  // load), so the token fetch follows this component's lifecycle.
+  const mode = useSystemThemeMode();
+  const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_MODEL);
+  const llm = useLLM({
+    url: "/api/chat",
+    messageFormat: openAIConversationMessageFormat,
+    streamAdapter: openAIResponsesAdapter(),
+    buildBody: ({ threadId, messages, formatMessages }) => ({
+      threadId,
+      input: formatMessages(messages.slice(-1)),
+      model: selectedModel,
+    }),
+  });
   const storage = useOpenuiCloudStorage({
-    // Backend mint proxy (POST → { token, expires_at }); the hook caches +
-    // refreshes it and injects x-thesys-frontend-token on every /v1 call.
     token: "/api/frontend-token",
-    // Env-driven so a local stack can be targeted; defaults to prod when unset.
     apiBaseUrl: "https://api.thesys.dev",
     features: { artifact: true },
   });
 
+  const modelSwitcher = (
+    <ModelSwitcher
+      models={AVAILABLE_MODELS}
+      value={selectedModel}
+      onValueChange={setSelectedModel}
+    />
+  );
+
   return (
-    <div className="h-screen w-screen overflow-hidden relative">
+    <div className="openui-cloud-page">
       <AgentInterface
         storage={storage}
         llm={llm}
@@ -80,7 +80,11 @@ export function CloudChat() {
             prompt: "Write a brief market-analysis report on the EV sector.",
           },
         ]}
-      />
+      >
+        <AgentInterface.MobileHeader agentName="" actions={modelSwitcher} />
+        <AgentInterface.ThreadHeader>{modelSwitcher}</AgentInterface.ThreadHeader>
+      </AgentInterface>
+      {OpenUIDevTools ? <OpenUIDevTools llm={llm} /> : null}
     </div>
   );
 }

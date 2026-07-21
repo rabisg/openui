@@ -92,7 +92,7 @@ Use Cloud when the user wants managed production infrastructure for an Agent Int
 Version-sensitive: verify exact Cloud template env vars, `@openuidev/thesys*` exports, and route helpers against the installed package/template. The CLI quickstart prompts for **OpenUI Cloud or self-hosted**. For Cloud:
 
 - Store `THESYS_API_KEY` server-side only, typically in `.env.local`.
-- The Cloud CLI template also uses `OPENUI_MODEL` in `provider/model` form and `DEMO_USER_ID` for the demo user identity.
+- The Cloud CLI template keeps its `provider/model` allowlist in app configuration and uses `DEMO_USER_ID` for the demo user identity.
 - Keep Cloud calls behind server routes such as `/api/chat` and `/api/frontend-token`; never expose the server key to the browser.
 - In the `openui-cloud` template, `/api/chat` uses `@openuidev/thesys-server` helpers such as `artifactTool` and `createResponsesInstructions`.
 - `AgentInterface` connects to Cloud with `llm` and `storage` props. `llm` points to an app route that proxies Cloud's Responses endpoint, usually with `openAIResponsesAdapter()` and `openAIConversationMessageFormat`. `storage` uses `useOpenuiCloudStorage()` from `@openuidev/thesys` with a short-lived frontend token.
@@ -124,13 +124,13 @@ import {
   AgentInterface,
   fetchLLM,
   restStorage,
-  openAIReadableStreamAdapter,
+  openAIAdapter,
   openAIMessageFormat,
 } from "@openuidev/react-ui";
 
 const llm = fetchLLM({
   url: "/api/chat",
-  streamAdapter: openAIReadableStreamAdapter(),
+  streamAdapter: openAIAdapter(),
   messageFormat: openAIMessageFormat,
 });
 

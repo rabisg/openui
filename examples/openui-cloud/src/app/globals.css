@@ -1,4 +1,16 @@
-@import "tailwindcss";
+html,
+body {
+  margin: 0;
+}
 
+.openui-cloud-page {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+}
 
- 
+.openui-detailed-view-panel > .thesys-artifact-standalone {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+}

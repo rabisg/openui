@@ -1,31 +1,28 @@
-import { NextRequest } from "next/server";
 import OpenAI from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 const client = new OpenAI();
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { messages, systemPrompt } = await req.json();
+    const { messages, systemPrompt } = (await req.json()) as {
+      messages: ChatCompletionMessageParam[];
+      systemPrompt: string;
+    };
 
-    const response = await client.chat.completions.create({
-      model: "gpt-5.2",
-      messages: [{ role: "system", content: systemPrompt }, ...messages],
-      stream: true,
-    });
-
-    return new Response(response.toReadableStream(), {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-      },
-    });
+    return await client.chat.completions
+      .create(
+        {
+          model: process.env.OPENAI_MODEL ?? "gpt-5.2",
+          messages: [{ role: "system", content: systemPrompt }, ...messages],
+          stream: true,
+        },
+        { signal: req.signal },
+      )
+      .asResponse();
   } catch (err) {
     console.error(err);
     const message = err instanceof Error ? err.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return Response.json({ error: message }, { status: 500 });
   }
 }

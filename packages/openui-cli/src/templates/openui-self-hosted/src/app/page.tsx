@@ -2,34 +2,25 @@
 import "@openuidev/react-ui/components.css";
 import "@openuidev/react-ui/styles/index.css";
 
-import {
-  openAIMessageFormat,
-  openAIReadableStreamAdapter,
-  type ChatLLM,
-} from "@openuidev/react-headless";
-import { AgentInterface } from "@openuidev/react-ui";
-import { openuiLibrary, openuiPromptOptions } from "@openuidev/react-ui/genui-lib";
+import { library, promptOptions } from "@/library";
+import { AgentInterface, fetchLLM, openAIAdapter, openAIMessageFormat } from "@openuidev/react-ui";
 
-const systemPrompt = openuiLibrary.prompt(openuiPromptOptions);
+const systemPrompt = library.prompt(promptOptions);
 
-const llm: ChatLLM = {
-  send: async ({ messages, signal }) =>
-    fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemPrompt,
-        messages: openAIMessageFormat.toApi(messages),
-      }),
-      signal,
-    }),
-  streamProtocol: openAIReadableStreamAdapter(),
-};
+const llm = fetchLLM({
+  url: "/api/chat",
+  messageFormat: openAIMessageFormat,
+  streamAdapter: openAIAdapter(),
+  buildBody: ({ messages, formatMessages }) => ({
+    systemPrompt,
+    messages: formatMessages(messages),
+  }),
+});
 
 export default function Home() {
   return (
-    <div className="h-screen w-screen overflow-hidden">
-      <AgentInterface llm={llm} componentLibrary={openuiLibrary} agentName="OpenUI Self Hosted" />
+    <div className="openui-page">
+      <AgentInterface llm={llm} componentLibrary={library} agentName="OpenUI Self Hosted" />
     </div>
   );
 }

@@ -60,10 +60,9 @@ Configure server-only environment values:
 
 ```bash
 THESYS_API_KEY=sk-th-your-key
-OPENUI_MODEL=google/gemini-3.1-pro-free
 ```
 
-Use a current supported `provider/model` value for `OPENUI_MODEL`; prefer the generated template or console over a stale hardcoded list. A scaffold may also use `DEMO_USER_ID=demo-user`, but production must derive the user id from authenticated server state.
+Keep the allowed model list and default model in app configuration, and validate requested models on the server. A scaffold may use `DEMO_USER_ID=demo-user`, but production must derive the user id from authenticated server state.
 
 ## Wire the Client
 
@@ -101,7 +100,7 @@ import {
   defineArtifactCategories,
   openAIConversationMessageFormat,
   openAIResponsesAdapter,
-  type ChatLLM,
+  useLLM,
 } from "@openuidev/react-ui";
 import {
   chatLibrary,
@@ -115,21 +114,17 @@ const artifacts = defineArtifactCategories([
   { name: "Reports", renderers: [reportArtifactRenderer] },
 ]);
 
-const llm: ChatLLM = {
-  send: ({ threadId, messages, signal }) =>
-    fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        threadId,
-        input: openAIConversationMessageFormat.toApi(messages.slice(-1)),
-      }),
-      signal,
+export default function CloudAgent({ selectedModel }: { selectedModel: string }) {
+  const llm = useLLM({
+    url: "/api/chat",
+    messageFormat: openAIConversationMessageFormat,
+    streamAdapter: openAIResponsesAdapter(),
+    buildBody: ({ threadId, messages, formatMessages }) => ({
+      threadId,
+      input: formatMessages(messages.slice(-1)),
+      model: selectedModel,
     }),
-  streamProtocol: openAIResponsesAdapter(),
-};
-
-export default function CloudAgent() {
+  });
   const storage = useOpenuiCloudStorage({
     token: "/api/frontend-token",
     apiBaseUrl: "https://api.thesys.dev",

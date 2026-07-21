@@ -14,13 +14,13 @@ pnpm install
 cp .env.example .env.local   # then fill THESYS_API_KEY
 ```
 
-| Var              | Required | Default                       | Purpose                                                          |
-| ---------------- | -------- | ----------------------------- | ---------------------------------------------------------------- |
-| `THESYS_API_KEY` | yes      | —                             | Org master key. **Server-side only**; never reaches the browser. |
-| `OPENUI_MODEL`   | no       | `anthropic/claude-sonnet-4.6` | Bare `provider/model` id for generation.                         |
-| `DEMO_USER_ID`   | no       | `demo-user`                   | End-user identity stamped into the frontend token.               |
+| Var              | Required | Default     | Purpose                                                          |
+| ---------------- | -------- | ----------- | ---------------------------------------------------------------- |
+| `THESYS_API_KEY` | yes      | —           | Org master key. **Server-side only**; never reaches the browser. |
+| `DEMO_USER_ID`   | no       | `demo-user` | End-user identity stamped into the frontend token.               |
 
 `.env.local` is gitignored. Restart `pnpm dev` after editing env.
+Configure the available models and default model in `src/config/models.ts`.
 
 ## Run
 
@@ -38,5 +38,4 @@ pnpm build      # production build (output: standalone)
 pnpm start      # serve the production build on :3300
 pnpm typecheck  # tsc --noEmit
 pnpm lint       # eslint
-pnpm test       # vitest run
 ```

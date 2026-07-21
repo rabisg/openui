@@ -90,6 +90,9 @@ function fetchLLM(options: {
   messageFormat?: MessageFormat;
   headers?: Record<string, string>;
   fetch?: typeof fetch;
+  buildBody?: (params: BuildLLMRequestBodyParams) => unknown;
+  onRequestStart?: () => void;
+  onResponseError?: (response: Response) => void | Promise<void>;
 }): ChatLLM;
 ```
 
@@ -100,20 +103,29 @@ function fetchLLM(options: {
 | `messageFormat` | `MessageFormat`            | No       | Converts outgoing `messages` to your provider's shape. Defaults to `identityMessageFormat`. |
 | `headers`       | `Record<string, string>`   | No       | Extra headers merged into every request (e.g. a session token). **Browser-visible.**     |
 | `fetch`         | `typeof fetch`             | No       | Override `fetch` (auth wrappers, instrumentation, tests).                                 |
+| `buildBody`     | `(params) => unknown`      | No       | Replaces the default AG-UI request body; receives canonical messages and their formatter. |
+| `onRequestStart` | `() => void`              | No       | Observes request starts.                                                                 |
+| `onResponseError` | `(response) => void \| Promise<void>` | No | Observes a clone of non-2xx responses.                                        |
 
-**Request body.** `fetchLLM` POSTs JSON `{ threadId, messages }`, where `messages` is run through `messageFormat.toApi`, and threads the `AbortSignal` from the UI:
+**Request body.** By default, `fetchLLM` POSTs an AG-UI-shaped body with `threadId`, a fresh `runId`, formatted `messages`, and empty `tools` and `context` arrays. `buildBody` can replace this shape. The UI's `AbortSignal` is always forwarded.
 
 ```ts
 // Inside fetchLLM — shown for reference; you don't write this.
 fetch(url, {
   method: "POST",
   headers: { "Content-Type": "application/json", ...headers },
-  body: JSON.stringify({ threadId, messages: messageFormat.toApi(messages) }),
+  body: JSON.stringify({
+    threadId,
+    runId: crypto.randomUUID(),
+    messages: messageFormat.toApi(messages),
+    tools: [],
+    context: [],
+  }),
   signal, // wired to the UI's cancel/stop control
 });
 ```
 
-Your route therefore always receives `{ threadId, messages }` and must return a streaming `Response`. `fetchLLM` runs that response through `streamAdapter`.
+Your route receives this default shape unless `buildBody` replaces it, and must return a streaming `Response`. `fetchLLM` runs that response through `streamAdapter`.
 
 ```tsx
 import { fetchLLM, openAIReadableStreamAdapter, openAIMessageFormat } from "@openuidev/react-ui";
@@ -126,6 +138,21 @@ const llm = fetchLLM({
 ```
 
 <Callout type="warn">`headers` are headers on the browser's request to *your* route. Use them for things like a session token or CSRF token — never a provider API key. The provider key lives only in your server-side route handler.</Callout>
+
+Use `useLLM(options)` in React when options reference live state. It preserves `ChatLLM` identity across renders while each request reads the latest options:
+
+```tsx
+const llm = useLLM({
+  url: "/api/chat",
+  messageFormat: openAIConversationMessageFormat,
+  streamAdapter: openAIResponsesAdapter(),
+  buildBody: ({ threadId, messages, formatMessages }) => ({
+    threadId,
+    input: formatMessages(messages.slice(-1)),
+    model: selectedModel,
+  }),
+});
+```
 
 ---
 
